@@ -1,24 +1,7 @@
 name: MinGW
 
 on: 
-  push:
-    paths-ignore:
-      - '.gitignore'
-      - '.gitattributes'
-      - '**.cmd'
-      - '**.md'
-      - 'AUTHORS'
-      - 'NEWS'
-      - 'ChangeLog'
-  pull_request:
-    paths-ignore:
-      - '.gitignore'
-      - '.gitattributes'
-      - '**.cmd'
-      - '**.md'
-      - 'AUTHORS'
-      - 'NEWS'
-      - 'ChangeLog'
+  workflow_dispatch:
 
 env:
   WDK_URL: https://go.microsoft.com/fwlink/p/?LinkID=253170

@@ -1,4 +1,4 @@
-name: Coverity
+name: Development Build
 
 on: 
   workflow_dispatch:
@@ -8,11 +8,10 @@ env:
   LIBUSB0_URL: https://github.com/mcuee/libusb-win32/releases/download/release_1.4.0.0/libusb-win32-bin-1.4.0.0.zip
   LIBUSBK_URL: https://github.com/mcuee/libusbk/releases/download/V3.1.0.0/libusbK-3.1.0.0-bin.7z
   SOLUTION_FILE_PATH: ./libwdi.sln
-  EMAIL: pete@akeo.ie
   BUILD_MACROS: '"WDK_DIR=\"../wdk/Windows Kits/8.0\";LIBUSB0_DIR=\"../libusb0\";LIBUSBK_DIR=\"../libusbk/bin\""'
 
 jobs:
-  Coverity-Build:
+  VS2022-Build:
     runs-on: windows-latest
 
     steps:
@@ -21,15 +20,7 @@ jobs:
       with:
         fetch-depth: 0
         submodules: recursive
-    - name: Download Coverity
-      run: |
-        curl -d "token=${{ secrets.COVERITY_SCAN_TOKEN }}&project=pbatard%2Flibwdi" -L https://scan.coverity.com/download/cxx/win64 -o cov-analysis-win64.zip
-        7z x cov-analysis-win64.zip
-        del cov-analysis-win64.zip
-        move cov-analysis-win64* cov-analysis-win64
-    - name: Add Coverity to PATH
-      shell: bash
-      run: echo "${{ github.workspace }}/cov-analysis-win64/bin" >> $GITHUB_PATH
+
     - name: Download support files
       shell: cmd
       run: |
@@ -43,14 +34,28 @@ jobs:
         del *.7z
         move libusb-win32* libusb0
         move libusbK* libusbk
+
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v2
-    - name: Build with Coverity
+
+    - name: Build
       shell: cmd
       run: |
-        cov-configure --msvc
-        cov-build.exe --dir cov-int msbuild ${{ env.SOLUTION_FILE_PATH }} /m /p:Configuration=Release,Platform=x64,BuildMacros=${{ env.BUILD_MACROS }}
-    - name: Upload Coverity build for analysis
+        for %%P in (Win32 x64) do (
+          for %%B in (Release) do (
+            msbuild ${{ env.SOLUTION_FILE_PATH }} /m /p:Configuration=%%B,Platform=%%P,BuildMacros=${{ env.BUILD_MACROS }}
+          )
+        )
+
+    - name: List built files
+      shell: pwsh
       run: |
-        7z a -r cov-int.zip cov-int
-        curl --form email=${{ env.EMAIL }} --form token=${{ secrets.COVERITY_SCAN_TOKEN }} --form file=@cov-int.zip --form version="${{ env.GITHUB_SHA }}" --form description="libwdi" https://scan.coverity.com/builds?project=pbatard%2Flibwdi
+        Get-ChildItem -Recurse -File | Where-Object { $_.Extension -ne '.exe' } | Select-Object FullName | Sort-Object FullName
+    
+    - name: Upload build tree
+      uses: actions/upload-artifact@v4
+      with:
+        name: Build
+        path: |
+          **/*
+          !.git/**
